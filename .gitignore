@@ -3,10 +3,3 @@
 __pycache__/
 *.pyc
 .DS_Store
-outputs/
-*.png
-
-# 本地大点云/序列数据（按需保留 examples/data/demo_gaussians.ply 可删掉此行）
-examples/0519/
-examples/**/*.ply
-!examples/data/demo_gaussians.ply
