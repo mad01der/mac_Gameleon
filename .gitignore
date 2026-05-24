@@ -6,3 +6,6 @@ __pycache__/
 vendor/torchsparse/build/
 vendor/torchsparse/dist/
 vendor/torchsparse/torchsparse.egg-info/
+vendor/minkowskiengine/build/
+vendor/minkowskiengine/dist/
+vendor/minkowskiengine/MinkowskiEngine.egg-info/
