@@ -1,156 +1,102 @@
 # mac_Gameleon
 
-Mac-side rendering experiments for Gameleon, using [gsplat-mlx](https://github.com/RobotFlow-Labs/gsplat-mlx) (Metal on Apple Silicon).
+Mac-side work for Gameleon: **gsplat-mlx** rendering (Metal) and **geometry UCM** on CPU (TorchSparse + MinkowskiEngine).
 
-CUDA reference code stays in `../Gameleon/`. This tree only adds Mac rendering.
+CUDA reference code stays in `../Gameleon/`. Weights live under `../Gameleon/gameleon/weights/`.
 
 ## Requirements
 
 - macOS on Apple Silicon (M series)
-- **Python >= 3.10** (system 3.9 is not enough)
-- Homebrew Python recommended: `brew install python@3.12`
-
-# One-time / idempotent Mac CPU environment for Gameleon (Phase 0).
-
-After setup, every new shell:
-
-```bash
-cd mac_Gameleon
-source scripts/env_mac_cpu.sh
-```
-
-Verify anytime:
-
-```bash
-python scripts/verify_phase0_env.py
-```
-
-Re-run setup without rebuilding TorchSparse/ME (faster):
-
-```bash
-SKIP_NATIVE=1 ./scripts/setup_env.sh
-```
+- **Python >= 3.10** (Homebrew `python@3.12` recommended)
+- Sibling repo: `../Gameleon/` with geometry/attribute checkpoints
+- Homebrew: `openblas`, `libomp`, `google-sparsehash`
 
 ## One-time setup
 
 ```bash
 cd mac_Gameleon
-chmod +x scripts/setup_env.sh scripts/env_mac_cpu.sh
+chmod +x scripts/*.sh
 ./scripts/setup_env.sh
 source scripts/env_mac_cpu.sh
+python scripts/verify_phase0_env.py
 ```
 
-This creates `.venv`, installs PyTorch + Gameleon (`pip install -e ../Gameleon --no-deps`),
-gsplat-mlx, TorchSparse CPU, and MinkowskiEngine CPU, then runs Phase 0 checks.
+Re-run without rebuilding TorchSparse / ME:
 
-**Requires** sibling checkout: `../Gameleon/` with weights and `examples/data/longdress/`.
+```bash
+SKIP_NATIVE=1 ./scripts/setup_env.sh
+```
 
-## Minimal render (demo PLY)
+Default test data: `examples/0519/` (`pcd_0.ply` ~562k voxel coords + `0519.obj`). Use `--max-points` for CPU smoke tests.
+
+## Daily shell
 
 ```bash
 cd mac_Gameleon
-source .venv/bin/activate
+source scripts/env_mac_cpu.sh
+```
 
-python scripts/make_demo_gaussian_ply.py --output examples/data/demo_gaussians.ply
+## Render 3D Gaussian PLY (gsplat-mlx / Metal)
 
+```bash
 python scripts/render_gaussian_ply.py \
-  --ply examples/data/demo_gaussians.ply \
-  --output outputs/demo_render.png \
+  --ply /path/to/your_3dgs.ply \
+  --output outputs/render.png \
   --width 512 --height 512
-open outputs/demo_render.png
 ```
 
-## Render Gameleon-exported Gaussians
+Supported layout: standard 3DGS (`x,y,z`, `f_dc_*`, `f_rest_*`, `opacity`, `scale_*`, `rot_*`), binary or ASCII.
 
-After CUDA `gameleon-test` writes `decoded_gaussians_seq.ply` (or similar 3DGS PLY):
+## Phase 1 — Geometry encode/decode (CPU)
+
+Apply patches to sibling `../Gameleon` once (or after pulling Gameleon):
 
 ```bash
-source .venv/bin/activate
-python scripts/render_gaussian_ply.py \
-  --ply /path/to/decoded_gaussians_seq.ply \
-  --output outputs/longdress_render.png \
-  --width 512 --height 512 --fov 60
+source scripts/env_mac_cpu.sh
+./scripts/apply_gameleon_geometry_cpu_patches.sh
 ```
 
-Supported PLY layout: standard 3DGS (`x,y,z`, `f_dc_*`, `f_rest_*`, `opacity`, `scale_*`, `rot_*`), binary or ASCII — same as Gameleon `export_decoded_ply`.
-
-## TorchSparse CPU (geometry spike)
-
-Gameleon UCM needs **TorchSparse**. v2.1 master is GPU-only; this repo pins **v2.0.0** with Mac patches.
-
-Prerequisites (Homebrew):
+Re-apply TorchSparse patches into the active venv after `pip install` (if needed):
 
 ```bash
-brew install google-sparsehash libomp
+./scripts/apply_torchsparse_patches.sh
 ```
 
-Install into the same `.venv` as gsplat-mlx:
+Smoke test (subsample 8000 points by default):
 
 ```bash
-source .venv/bin/activate
-chmod +x scripts/install_torchsparse_cpu.sh
-./scripts/install_torchsparse_cpu.sh
+python scripts/test_gameleon_geometry_cpu.py
 ```
 
-Smoke test only:
+Full cloud (~562k points, slow on CPU):
 
 ```bash
+python scripts/test_gameleon_geometry_cpu.py --max-points 0
+```
+
+## Optional: install native libs only
+
+```bash
+./scripts/install_torchsparse_cpu.sh   # geometry (TorchSparse v2.0.0 CPU)
 python scripts/test_torchsparse_cpu.py
-# expect: CPU conv ok: (100, 16)
-```
 
-Patches live in `patches/torchsparse_v2.0.0/` (OpenMP/libomp + CPU kmap fallback).
-
-**Note:** This validates sparse conv on Mac CPU. Wiring Gameleon `CoderIntra`/UCM still requires matching the Linux TorchSparse version and replacing hard-coded `cuda` in Gameleon code.
-
-## MinkowskiEngine CPU (attribute spike)
-
-Gameleon attribute codec (`PCMLv9`) depends on **MinkowskiEngine**. This repo pins **v0.5.4** with Mac CPU patches.
-
-Prerequisites (Homebrew):
-
-```bash
-brew install openblas libomp
-```
-
-Install into the same `.venv`:
-
-```bash
-source .venv/bin/activate
-chmod +x scripts/install_minkowski_cpu.sh
-./scripts/install_minkowski_cpu.sh
-```
-
-Smoke test only:
-
-```bash
-export KMP_DUPLICATE_LIB_OK=TRUE   # PyTorch + ME both link libomp on macOS
+./scripts/install_minkowski_cpu.sh     # attribute path (ME v0.5.4 CPU)
+export KMP_DUPLICATE_LIB_OK=TRUE
 python scripts/test_minkowski_cpu.py
-# expect: CPU sparse collate ok: (..., 16) and CPU conv ok: (..., 16)
 ```
 
-Patches live in `patches/minkowskiengine_v0.5.4/` (libomp/OpenMP, OpenBLAS, C++17/clang fixes, Python 3.12 `collections.abc`).
-
-**Note:** This validates ME sparse conv on Mac CPU. Full attribute encode/decode still requires wiring Gameleon `GameleonAttributeAdapter` and replacing CUDA-only paths (e.g. diff-gaussian-rasterization).
+Patches: `patches/torchsparse_v2.0.0/`, `patches/minkowskiengine_v0.5.4/`, `patches/gameleon_geometry_cpu/`.
 
 ## Layout
 
 ```text
 mac_Gameleon/
-  vendor/gsplat-mlx/       # Metal 3DGS rasterizer
-  vendor/torchsparse/      # v2.0.0 + Mac CPU patches (after install script)
-  patches/torchsparse_v2.0.0/
-  patches/minkowskiengine_v0.5.4/
-  mac_gameleon/            # paths + PLY loader + render wrapper
+  examples/0519/           # default geometry test PLY/OBJ
+  mac_gameleon/            # paths, device, render helpers
+  patches/                 # Mac patches (TorchSparse, ME, Gameleon geometry)
+  scripts/                 # setup, env, tests, apply_*_patches.sh
+  vendor/gsplat-mlx/       # Metal 3DGS (submodule / vendor)
+  vendor/torchsparse/      # v2.0.0 source (after install script)
+  vendor/minkowskiengine/  # v0.5.4 source (after install script)
   requirements-mac-cpu.txt
-  scripts/
-    setup_env.sh
-    env_mac_cpu.sh
-    verify_phase0_env.py
-    install_torchsparse_cpu.sh
-    test_torchsparse_cpu.py
-    install_minkowski_cpu.sh
-    test_minkowski_cpu.py
-    make_demo_gaussian_ply.py
-    render_gaussian_ply.py
 ```

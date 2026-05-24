@@ -8,3 +8,5 @@ tqdm
 pandas
 PyYAML
 imageio
+h5py
+torchac

@@ -3,6 +3,8 @@
 __pycache__/
 *.pyc
 .DS_Store
+outputs/
+examples/**/.ipynb_checkpoints/
 vendor/torchsparse/build/
 vendor/torchsparse/dist/
 vendor/torchsparse/torchsparse.egg-info/

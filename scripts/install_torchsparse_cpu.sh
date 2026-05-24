@@ -28,6 +28,7 @@ find torchsparse -type d -name __pycache__ -prune -exec rm -rf {} + 2>/dev/null 
 
 cp "$PATCHES/setup.py" setup.py
 cp "$PATCHES/build_kmap.py" torchsparse/nn/functional/build_kmap.py
+cp "$PATCHES/downsample.py" torchsparse/nn/functional/downsample.py
 
 brew list google-sparsehash >/dev/null 2>&1 || brew install google-sparsehash
 brew list libomp >/dev/null 2>&1 || brew install libomp

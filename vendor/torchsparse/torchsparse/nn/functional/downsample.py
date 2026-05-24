@@ -18,8 +18,9 @@ def spdownsample(
     tensor_stride = make_ntuple(tensor_stride, ndim=3)
 
     sample_stride = [stride[k] * tensor_stride[k] for k in range(3)]
+    # int64: FOG multi-scale encoding accumulates tensor_stride past int32 max.
     sample_stride = torch.tensor(sample_stride,
-                                 dtype=torch.int,
+                                 dtype=torch.int64,
                                  device=coords.device).unsqueeze(dim=0)
 
     if all(stride[k] in [1, kernel_size[k]] for k in range(3)):

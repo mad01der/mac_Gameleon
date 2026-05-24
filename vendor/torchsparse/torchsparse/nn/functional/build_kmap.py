@@ -21,12 +21,12 @@ def build_kernel_map(_coords: torch.Tensor,
         kernel_size = make_ntuple(kernel_size, ndim=3)
         tensor_stride = make_ntuple(tensor_stride, ndim=3)
         subm = not (any(s > 1 for s in stride))
-        stride = torch.tensor(stride, dtype=torch.int, device=coords.device)
+        stride = torch.tensor(stride, dtype=torch.int64, device=coords.device)
         kernel_size = torch.tensor(kernel_size,
-                                   dtype=torch.int,
+                                   dtype=torch.int64,
                                    device=coords.device)
         tensor_stride = torch.tensor(tensor_stride,
-                                     dtype=torch.int,
+                                     dtype=torch.int64,
                                      device=coords.device)
 
         if subm:
