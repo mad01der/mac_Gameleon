@@ -48,14 +48,47 @@ python scripts/render_gaussian_ply.py \
 
 Supported PLY layout: standard 3DGS (`x,y,z`, `f_dc_*`, `f_rest_*`, `opacity`, `scale_*`, `rot_*`), binary or ASCII — same as Gameleon `export_decoded_ply`.
 
+## TorchSparse CPU (geometry spike)
+
+Gameleon UCM needs **TorchSparse**. v2.1 master is GPU-only; this repo pins **v2.0.0** with Mac patches.
+
+Prerequisites (Homebrew):
+
+```bash
+brew install google-sparsehash libomp
+```
+
+Install into the same `.venv` as gsplat-mlx:
+
+```bash
+source .venv/bin/activate
+chmod +x scripts/install_torchsparse_cpu.sh
+./scripts/install_torchsparse_cpu.sh
+```
+
+Smoke test only:
+
+```bash
+python scripts/test_torchsparse_cpu.py
+# expect: CPU conv ok: (100, 16)
+```
+
+Patches live in `patches/torchsparse_v2.0.0/` (OpenMP/libomp + CPU kmap fallback).
+
+**Note:** This validates sparse conv on Mac CPU. Wiring Gameleon `CoderIntra`/UCM still requires matching the Linux TorchSparse version and replacing hard-coded `cuda` in Gameleon code.
+
 ## Layout
 
 ```text
 mac_Gameleon/
-  vendor/gsplat-mlx/     # vendored Metal rasterizer
-  mac_gameleon/          # PLY loader + render wrapper
+  vendor/gsplat-mlx/       # Metal 3DGS rasterizer
+  vendor/torchsparse/      # v2.0.0 + Mac CPU patches (after install script)
+  patches/torchsparse_v2.0.0/
+  mac_gameleon/            # PLY loader + render wrapper
   scripts/
     setup_env.sh
+    install_torchsparse_cpu.sh
+    test_torchsparse_cpu.py
     make_demo_gaussian_ply.py
     render_gaussian_ply.py
 ```

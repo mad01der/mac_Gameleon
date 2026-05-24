@@ -3,3 +3,6 @@
 __pycache__/
 *.pyc
 .DS_Store
+vendor/torchsparse/build/
+vendor/torchsparse/dist/
+vendor/torchsparse/torchsparse.egg-info/
