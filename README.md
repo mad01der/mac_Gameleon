@@ -10,14 +10,40 @@ CUDA reference code stays in `../Gameleon/`. This tree only adds Mac rendering.
 - **Python >= 3.10** (system 3.9 is not enough)
 - Homebrew Python recommended: `brew install python@3.12`
 
+# One-time / idempotent Mac CPU environment for Gameleon (Phase 0).
+
+After setup, every new shell:
+
+```bash
+cd mac_Gameleon
+source scripts/env_mac_cpu.sh
+```
+
+Verify anytime:
+
+```bash
+python scripts/verify_phase0_env.py
+```
+
+Re-run setup without rebuilding TorchSparse/ME (faster):
+
+```bash
+SKIP_NATIVE=1 ./scripts/setup_env.sh
+```
+
 ## One-time setup
 
 ```bash
 cd mac_Gameleon
-chmod +x scripts/setup_env.sh
+chmod +x scripts/setup_env.sh scripts/env_mac_cpu.sh
 ./scripts/setup_env.sh
-source .venv/bin/activate
+source scripts/env_mac_cpu.sh
 ```
+
+This creates `.venv`, installs PyTorch + Gameleon (`pip install -e ../Gameleon --no-deps`),
+gsplat-mlx, TorchSparse CPU, and MinkowskiEngine CPU, then runs Phase 0 checks.
+
+**Requires** sibling checkout: `../Gameleon/` with weights and `examples/data/longdress/`.
 
 ## Minimal render (demo PLY)
 
@@ -115,9 +141,12 @@ mac_Gameleon/
   vendor/torchsparse/      # v2.0.0 + Mac CPU patches (after install script)
   patches/torchsparse_v2.0.0/
   patches/minkowskiengine_v0.5.4/
-  mac_gameleon/            # PLY loader + render wrapper
+  mac_gameleon/            # paths + PLY loader + render wrapper
+  requirements-mac-cpu.txt
   scripts/
     setup_env.sh
+    env_mac_cpu.sh
+    verify_phase0_env.py
     install_torchsparse_cpu.sh
     test_torchsparse_cpu.py
     install_minkowski_cpu.sh

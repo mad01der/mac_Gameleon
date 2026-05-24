@@ -1,0 +1,10 @@
+# Python deps for Gameleon on Mac CPU (excluding torch / native extensions).
+# TorchSparse and MinkowskiEngine are installed via scripts/install_*_cpu.sh.
+numpy
+Pillow
+open3d
+scipy
+tqdm
+pandas
+PyYAML
+imageio
