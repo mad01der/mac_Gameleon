@@ -74,6 +74,22 @@ Full cloud (~562k points, slow on CPU):
 python scripts/test_gameleon_geometry_cpu.py --max-points 0
 ```
 
+Notes:
+
+- `test_gameleon_geometry_cpu.py` now enables MLX-hybrid patches by default for:
+  - `spdownsample`
+  - `build_kernel_map`
+  - `FOG.forward`
+  - `conv3d` fast-path (`k=3,s=1,non-transposed`)
+- Use `--no-patch-*` flags to disable each patch for ablation.
+- `--no-run-mlx-poc` skips the MLX pre-check stage.
+
+Run standalone MLX sparse aggregation benchmark:
+
+```bash
+python scripts/test_mlx_sparse_poc.py --max-points 2000
+```
+
 ## Optional: install native libs only
 
 ```bash
