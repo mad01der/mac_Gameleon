@@ -10,6 +10,7 @@ GAMELEON_PACKAGE_ROOT = GAMELEON_ROOT / "gameleon"
 GAMELEON_ATTRIBUTE_ROOT = GAMELEON_PACKAGE_ROOT / "gameleon_attribute"
 
 MAC_EXAMPLES_ROOT = MAC_GAMELEON_ROOT / "examples"
+GEOMETRY_OUTPUT_DIR = MAC_GAMELEON_ROOT / "outputs" / "geometry"
 
 # Default Mac test frame (sequence-style: pcd_0.ply + mesh .obj).
 DEFAULT_EXAMPLE_DIR = MAC_EXAMPLES_ROOT / "0519"

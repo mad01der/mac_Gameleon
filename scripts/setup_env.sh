@@ -55,6 +55,8 @@ pip install -e "$ROOT/vendor/gsplat-mlx"
 if [[ "$SKIP_GAMELEON" != "1" ]]; then
   echo "==> Gameleon (editable, --no-deps; native ME/TorchSparse installed separately)"
   pip install -e "$ROOT/../Gameleon" --no-deps
+  echo "==> Gameleon geometry CPU patches"
+  python "$ROOT/patches/gameleon_geometry_cpu/apply_patches.py" "${GAMELEON_ROOT:-$ROOT/../Gameleon}"
 fi
 
 if [[ "$SKIP_NATIVE" != "1" ]]; then

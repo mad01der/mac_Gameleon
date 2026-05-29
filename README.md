@@ -27,7 +27,7 @@ Re-run without rebuilding TorchSparse / ME:
 SKIP_NATIVE=1 ./scripts/setup_env.sh
 ```
 
-Default test data: `examples/0519/` (`pcd_0.ply` ~562k voxel coords + `0519.obj`). Use `--max-points` for CPU smoke tests.
+Default test data: `examples/0519/` (`pcd_0.ply` ~562k voxel coords + `0519.obj`).
 
 ## Daily shell
 
@@ -49,46 +49,30 @@ Supported layout: standard 3DGS (`x,y,z`, `f_dc_*`, `f_rest_*`, `opacity`, `scal
 
 ## Phase 1 — Geometry encode/decode (CPU)
 
-Apply patches to sibling `../Gameleon` once (or after pulling Gameleon):
+`setup_env.sh` applies Gameleon geometry CPU patches; `geometry_mac.py` re-applies them idempotently before encode/decode.
+
+Re-copy TorchSparse runtime patches after a venv `pip install` overwrote them (no rebuild):
 
 ```bash
-source scripts/env_mac_cpu.sh
-./scripts/apply_gameleon_geometry_cpu_patches.sh
+PATCHES_ONLY=1 ./scripts/install_torchsparse_cpu.sh
 ```
 
-Re-apply TorchSparse patches into the active venv after `pip install` (if needed):
+Lossless geometry encode/decode on the default full cloud (~562k points, slow on CPU):
 
 ```bash
-./scripts/apply_torchsparse_patches.sh
+python scripts/geometry_mac.py
 ```
 
-Smoke test (subsample 8000 points by default):
-
-```bash
-python scripts/test_gameleon_geometry_cpu.py
-```
-
-Full cloud (~562k points, slow on CPU):
-
-```bash
-python scripts/test_gameleon_geometry_cpu.py --max-points 0
-```
+Encoded bitstreams are written to `outputs/geometry/` (e.g. `pcd_0.bin` for the default input).
 
 Notes:
 
-- `test_gameleon_geometry_cpu.py` now enables MLX-hybrid patches by default for:
+- `geometry_mac.py` enables MLX-hybrid patches by default for:
   - `spdownsample`
   - `build_kernel_map`
   - `FOG.forward`
   - `conv3d` fast-path (`k=3,s=1,non-transposed`)
 - Use `--no-patch-*` flags to disable each patch for ablation.
-- `--no-run-mlx-poc` skips the MLX pre-check stage.
-
-Run standalone MLX sparse aggregation benchmark:
-
-```bash
-python scripts/test_mlx_sparse_poc.py --max-points 2000
-```
 
 ## Optional: install native libs only
 
@@ -108,9 +92,10 @@ Patches: `patches/torchsparse_v2.0.0/`, `patches/minkowskiengine_v0.5.4/`, `patc
 ```text
 mac_Gameleon/
   examples/0519/           # default geometry test PLY/OBJ
+  outputs/geometry/        # geometry bitstreams from geometry_mac.py (gitignored)
   mac_gameleon/            # paths, device, render helpers
   patches/                 # Mac patches (TorchSparse, ME, Gameleon geometry)
-  scripts/                 # setup, env, tests, apply_*_patches.sh
+  scripts/                 # setup, env, install_*, geometry_mac.py
   vendor/gsplat-mlx/       # Metal 3DGS (submodule / vendor)
   vendor/torchsparse/      # v2.0.0 source (after install script)
   vendor/minkowskiengine/  # v0.5.4 source (after install script)

@@ -1,11 +1,20 @@
 #!/usr/bin/env bash
 # Install vendored TorchSparse v2.0.0 with CPU backend on Apple Silicon.
+# Re-copy runtime patches only (no rebuild): PATCHES_ONLY=1 ./scripts/install_torchsparse_cpu.sh
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 VENDOR="$ROOT/vendor/torchsparse"
 PATCHES="$ROOT/patches/torchsparse_v2.0.0"
 TAG="${TORCHSPARSE_TAG:-v2.0.0}"
+
+apply_torchsparse_runtime_patches() {
+  local sp
+  sp="$(python -c "import torchsparse, pathlib; print(pathlib.Path(torchsparse.__file__).parent)")"
+  cp "$PATCHES/build_kmap.py" "$sp/nn/functional/build_kmap.py"
+  cp "$PATCHES/downsample.py" "$sp/nn/functional/downsample.py"
+  echo "TorchSparse runtime patches applied under $sp"
+}
 
 cd "$ROOT"
 if [[ ! -d .venv ]]; then
@@ -14,6 +23,11 @@ if [[ ! -d .venv ]]; then
 fi
 # shellcheck disable=SC1091
 source .venv/bin/activate
+
+if [[ "${PATCHES_ONLY:-0}" == "1" ]]; then
+  apply_torchsparse_runtime_patches
+  exit 0
+fi
 
 if [[ ! -d "$VENDOR/.git" ]]; then
   git clone --depth 1 --branch "$TAG" https://github.com/mit-han-lab/torchsparse.git "$VENDOR"
@@ -38,5 +52,6 @@ pip install "setuptools>=68,<82" ninja
 pip uninstall -y torchsparse 2>/dev/null || true
 pip install --no-build-isolation -v .
 
+apply_torchsparse_runtime_patches
 python "$ROOT/scripts/test_torchsparse_cpu.py"
 echo "TorchSparse CPU install OK (tag=$TAG)."
