@@ -1,0 +1,10 @@
+.venv/
+*.egg-info/
+__pycache__/
+*.pyc
+.DS_Store
+outputs/
+examples/**/.ipynb_checkpoints/
+vendor/minkowskiengine/build/
+vendor/minkowskiengine/dist/
+vendor/minkowskiengine/MinkowskiEngine.egg-info/
