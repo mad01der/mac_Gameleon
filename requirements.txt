@@ -1,0 +1,15 @@
+# Python deps for mac_Gameleon (geometry-meta + gsplat-mlx).
+# PyTorch and MinkowskiEngine are installed separately via scripts/setup_env.sh.
+mlx>=0.31.0
+mlx-lattice>=0.1.11
+numpy
+Pillow
+open3d
+scipy
+tqdm
+pandas
+PyYAML
+imageio
+h5py
+torchac
+ninja

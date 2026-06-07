@@ -36,7 +36,7 @@ source "$ROOT/scripts/env_mac_cpu.sh"
 
 pip install -U pip wheel "setuptools>=68,<82" ninja
 pip install -U torch torchvision
-pip install -r "$ROOT/requirements-mac-cpu.txt"
+pip install -r "$ROOT/requirements.txt"
 pip uninstall -y torchsparse 2>/dev/null || true
 pip install -e "$ROOT/vendor/gsplat-mlx"
 

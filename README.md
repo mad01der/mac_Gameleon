@@ -104,5 +104,5 @@ mac_Gameleon/
   vendor/
     gsplat-mlx/               # Metal 3DGS (editable install)
     minkowskiengine/          # cloned + built by install_minkowski_cpu.sh
-  requirements-mac-cpu.txt
+  requirements.txt
 ```
