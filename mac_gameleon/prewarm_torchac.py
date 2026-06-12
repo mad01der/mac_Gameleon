@@ -46,7 +46,7 @@ def prewarm_torchac(*, log=print) -> None:
 
     log(
         "Compiling torchac C++ backend (first run only, ~5–30s). "
-        "Do not start multiple geometry_meta.py processes in parallel."
+        "Do not start multiple step2.py processes in parallel."
     )
     t0 = time.perf_counter()
     import torchac  # noqa: F401

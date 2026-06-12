@@ -55,4 +55,5 @@ python -c "import mlx_lattice, gameleon; from mac_gameleon.paths import required
 echo ""
 echo "Setup complete:"
 echo "  source scripts/env_mac_cpu.sh"
-echo "  python scripts/geometry_meta.py"
+echo "  python scripts/step1.py"
+echo "  python test.py"

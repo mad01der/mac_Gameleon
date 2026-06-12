@@ -10,6 +10,8 @@ tqdm
 pandas
 PyYAML
 imageio
+pyexr
 h5py
 torchac
 ninja
+opencv-python-headless

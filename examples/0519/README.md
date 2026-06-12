@@ -1,12 +1,18 @@
 # 0519 test frame
 
-- `pcd_0.ply` — point cloud (~562,683 points, integer voxel coords x/y/z ≈ 276–748 / 64–960 / 418–615)
+- `pcd_0.ply` — point cloud (~562k points)
 - `0519.obj` — mesh ground truth (+ `material0.mtl` / `material0.jpeg`)
 
-Geometry-meta encode/decode (full cloud):
+Full pipeline:
 
 ```bash
 cd ../..
 source scripts/env_mac_cpu.sh
-python scripts/geometry_meta.py
+python test.py
+```
+
+Skip render (bpp + PLY only):
+
+```bash
+python test.py --no-render
 ```
