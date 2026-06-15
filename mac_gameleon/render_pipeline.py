@@ -365,6 +365,7 @@ def write_decode_summary(
     decoded_pcd_path: str,
     gaussian_points: int,
     render_info: Optional[dict[str, Any]] = None,
+    codec_timing: Optional[dict[str, float]] = None,
 ) -> Path:
     """Write Gameleon-aligned summary.json with bpp (+ optional render metrics)."""
     paths = render_output_paths(outdir, level=level)
@@ -376,6 +377,8 @@ def write_decode_summary(
         "decode_timing": dict(decode_timing or {}),
         **rate_metrics,
     }
+    if codec_timing:
+        summary.update(codec_timing)
     if render_info is not None:
         summary.update(
             {
@@ -418,6 +421,7 @@ def run_post_decode_render(
     decode_sec: float = 0.0,
     decode_timing: Optional[dict[str, Any]] = None,
     rate_metrics: Optional[dict[str, float | int]] = None,
+    codec_timing: Optional[dict[str, float]] = None,
     log: Optional[Callable[[str], None]] = None,
 ) -> dict[str, Any]:
     paths = render_output_paths(outdir, level=level)
@@ -542,6 +546,8 @@ def run_post_decode_render(
         }
         if rate_metrics is not None:
             summary.update(rate_metrics)
+        if codec_timing:
+            summary.update(codec_timing)
         summary_path = paths["summary_json"]
         with summary_path.open("w", encoding="utf-8") as handle:
             json.dump(summary, handle, indent=2)

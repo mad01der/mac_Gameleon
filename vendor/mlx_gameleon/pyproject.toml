@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mlx-gameleon"
+version = "0.1.0"
+description = "Gameleon geometry and attribute codec on mlx-lattice (MLX/Metal)."
+readme = "README.md"
+requires-python = ">=3.12"
+license = "MIT"
+dependencies = [
+  "mlx-lattice",
+  "numpy",
+]
+
+[project.scripts]
+mlx-gameleon-bench = "mlx_gameleon.bench:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["mlx_gameleon*"]
+
+[tool.uv.sources]
+mlx-lattice = { workspace = true }

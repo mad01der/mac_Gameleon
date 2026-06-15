@@ -161,7 +161,8 @@ def main(argv: Optional[list[str]] = None) -> int:
         attribute_bits=step1_result.attribute_bits,
         geometry_bits=step2_result.geometry_bits,
         support_points=step1_result.geom_points,
-        encode_sec=step1_result.encode_sec + step2_result.encode_sec,
+        attribute_encode_sec=step1_result.encode_sec,
+        geometry_encode_sec=step2_result.encode_sec,
         geometry_decode_sec=step2_result.decode_sec,
         log=lambda msg: _log(msg, t0=t0),
     )

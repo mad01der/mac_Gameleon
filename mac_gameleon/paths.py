@@ -34,10 +34,6 @@ ATTRIBUTE_CKPT_LEVEL8 = (
     / "epoch4.pth"
 )
 
-# Backward-compatible aliases (same layout as original Gameleon outdir).
-ORIG_ATTRIBUTE_OUTPUT_DIR = DEFAULT_OUTPUT_DIR / "orig_attribute"
-GEOMETRY_OUTPUT_DIR = DEFAULT_OUTPUT_DIR / "geometry"
-
 
 def pipeline_output_paths(
     outdir: Path,

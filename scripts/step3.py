@@ -15,6 +15,7 @@ from typing import Any, Callable, Optional, Sequence
 warnings.filterwarnings("ignore", message=".*MinkowskiEngine was compiled with CPU_ONLY.*")
 
 import torch
+import numpy as np
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
@@ -68,7 +69,10 @@ class Step3Result:
     gt_render_dir: Optional[str] = None
     summary_json: Optional[str] = None
     render_sec: Optional[float] = None
-    encode_sec: Optional[float] = None
+    attribute_encode_sec: Optional[float] = None
+    geometry_encode_sec: Optional[float] = None
+    geometry_decode_sec: Optional[float] = None
+    total_encode_sec: Optional[float] = None
     total_decode_sec: Optional[float] = None
     geometry_bpp: Optional[float] = None
     attribute_bpp: Optional[float] = None
@@ -121,6 +125,85 @@ def _gaussian_point_count(gaussian_dict: dict) -> int:
     return int(primitives[0].shape[0])
 
 
+_SH_DC_SCALE = 0.28209479177387814
+
+
+def _tensor_channel_stats(tensor: torch.Tensor) -> str:
+    arr = tensor.detach().float().cpu().numpy()
+    if arr.ndim == 1:
+        arr = arr.reshape(-1, 1)
+    parts = []
+    for ch in range(arr.shape[-1]):
+        col = arr[..., ch].reshape(-1)
+        parts.append(
+            f"ch{ch}[min={float(col.min()):.4f} max={float(col.max()):.4f} mean={float(col.mean()):.4f}]"
+        )
+    return " ".join(parts)
+
+
+def _summarize_input_ply_colors(ply_path: Path) -> None:
+    import open3d as o3d
+
+    if not ply_path.is_file():
+        print(f"input_ply_colors: missing {ply_path}")
+        return
+    pcd = o3d.io.read_point_cloud(str(ply_path))
+    colors = np.asarray(pcd.colors, dtype=np.float32)
+    if colors.size == 0:
+        print(f"input_ply_colors: no colors in {ply_path}")
+        return
+    if colors.max() > 1.0:
+        colors = colors / 255.0
+    print(
+        "input_ply_colors "
+        f"points={colors.shape[0]} "
+        f"R[min={colors[:,0].min():.4f} max={colors[:,0].max():.4f} mean={colors[:,0].mean():.4f}] "
+        f"G[min={colors[:,1].min():.4f} max={colors[:,1].max():.4f} mean={colors[:,1].mean():.4f}] "
+        f"B[min={colors[:,2].min():.4f} max={colors[:,2].max():.4f} mean={colors[:,2].mean():.4f}]"
+    )
+
+
+def _summarize_decoded_dc_diagnostics(
+    gaussian_dict: dict,
+    *,
+    input_ply: Optional[Path] = None,
+) -> None:
+    """Print decoded_dc stats and RGB interpretations for render debugging."""
+    dc_list = gaussian_dict.get("decoded_dc") or []
+    if not dc_list:
+        print("decoded_dc_diagnostics: missing decoded_dc")
+        return
+    dc = dc_list[0].detach().float().cpu()
+    print("decoded_dc_diagnostics (tensor as stored in gaussian_dict)")
+    print(f"  shape={tuple(dc.shape)} {_tensor_channel_stats(dc)}")
+    dc_np = dc.numpy()
+    as_linear_rgb = np.clip(dc_np, 0.0, 1.0)
+    print(
+        "  as_linear_rgb_clip01 "
+        f"R_mean={as_linear_rgb[:, 0].mean():.4f} "
+        f"G_mean={as_linear_rgb[:, 1].mean():.4f} "
+        f"B_mean={as_linear_rgb[:, 2].mean():.4f}"
+    )
+    # If decoded_dc were SH f_dc: linear RGB = f_dc * C0 + 0.5
+    as_sh_fdc = dc_np
+    rgb_from_sh = np.clip(as_sh_fdc * _SH_DC_SCALE + 0.5, 0.0, 1.0)
+    print(
+        "  if_sh_fdc_to_rgb "
+        f"R_mean={rgb_from_sh[:, 0].mean():.4f} "
+        f"G_mean={rgb_from_sh[:, 1].mean():.4f} "
+        f"B_mean={rgb_from_sh[:, 2].mean():.4f}"
+    )
+    o_list = gaussian_dict.get("decoded_o") or []
+    if o_list:
+        op = o_list[0].detach().float().cpu().numpy().reshape(-1)
+        print(
+            f"  decoded_o mean={op.mean():.4f} min={op.min():.4f} max={op.max():.4f} "
+            f"frac>0.5={float((op > 0.5).mean()):.4f}"
+        )
+    if input_ply is not None:
+        _summarize_input_ply_colors(input_ply)
+
+
 def _summarize_gaussian_dict(gaussian_dict: dict) -> None:
     count = _gaussian_point_count(gaussian_dict)
     print(f"gaussian_points={count}")
@@ -139,22 +222,45 @@ def _summarize_rate_metrics(rate_metrics: dict[str, float | int]) -> None:
     print(format_rate_metrics(rate_metrics))
 
 
+def _codec_timing_dict(
+    *,
+    attribute_encode_sec: Optional[float],
+    geometry_encode_sec: Optional[float],
+    attribute_decode_sec: float,
+    geometry_decode_sec: Optional[float],
+) -> dict[str, float]:
+    timing: dict[str, float] = {"attribute_decode_sec": float(attribute_decode_sec)}
+    if attribute_encode_sec is not None:
+        timing["attribute_encode_sec"] = float(attribute_encode_sec)
+    if geometry_encode_sec is not None:
+        timing["geometry_encode_sec"] = float(geometry_encode_sec)
+    if geometry_decode_sec is not None:
+        timing["geometry_decode_sec"] = float(geometry_decode_sec)
+    if attribute_encode_sec is not None and geometry_encode_sec is not None:
+        timing["total_encode_sec"] = float(attribute_encode_sec + geometry_encode_sec)
+    if geometry_decode_sec is not None:
+        timing["total_decode_sec"] = float(geometry_decode_sec + attribute_decode_sec)
+    return timing
+
+
 def _print_codec_complete(
     *,
     rate_metrics: Optional[dict[str, float | int]],
-    encode_sec: Optional[float],
+    attribute_encode_sec: Optional[float],
+    geometry_encode_sec: Optional[float],
     attribute_decode_sec: float,
     geometry_decode_sec: Optional[float],
 ) -> None:
     print("\n编解码结束", flush=True)
     if rate_metrics is not None:
         _summarize_rate_metrics(rate_metrics)
-    if encode_sec is not None:
-        print(f"encode_sec={encode_sec:.3f}")
-    total_decode_sec = attribute_decode_sec
+    if attribute_encode_sec is not None:
+        print(f"attribute_encode_sec={attribute_encode_sec:.3f}")
+    if geometry_encode_sec is not None:
+        print(f"geometry_encode_sec={geometry_encode_sec:.3f}")
+    print(f"attribute_decode_sec={attribute_decode_sec:.3f}")
     if geometry_decode_sec is not None:
-        total_decode_sec = geometry_decode_sec + attribute_decode_sec
-    print(f"decode_sec={total_decode_sec:.3f}")
+        print(f"geometry_decode_sec={geometry_decode_sec:.3f}")
 
 
 def run_step3(
@@ -172,7 +278,9 @@ def run_step3(
     geometry_bits: Optional[int] = None,
     support_points: Optional[int] = None,
     sample_name: Optional[str] = None,
-    encode_sec: Optional[float] = None,
+    input_ply: Optional[Path] = None,
+    attribute_encode_sec: Optional[float] = None,
+    geometry_encode_sec: Optional[float] = None,
     geometry_decode_sec: Optional[float] = None,
     fov: int = DEFAULT_FOV,
     width: int = DEFAULT_WIDTH,
@@ -222,6 +330,7 @@ def run_step3(
     log(f"attribute decode finished in {decode_sec:.3f}s")
 
     _summarize_gaussian_dict(gaussian_dict)
+    _summarize_decoded_dc_diagnostics(gaussian_dict, input_ply=input_ply)
     decode_timing = dict(decode_info.get("decode_timing", {}) or {})
     if decode_timing:
         print(
@@ -262,9 +371,16 @@ def run_step3(
             support_points=support_points,
         )
 
+    codec_timing = _codec_timing_dict(
+        attribute_encode_sec=attribute_encode_sec,
+        geometry_encode_sec=geometry_encode_sec,
+        attribute_decode_sec=decode_sec,
+        geometry_decode_sec=geometry_decode_sec,
+    )
     _print_codec_complete(
         rate_metrics=rate_metrics,
-        encode_sec=encode_sec,
+        attribute_encode_sec=attribute_encode_sec,
+        geometry_encode_sec=geometry_encode_sec,
         attribute_decode_sec=decode_sec,
         geometry_decode_sec=geometry_decode_sec,
     )
@@ -293,6 +409,7 @@ def run_step3(
             decode_sec=decode_sec,
             decode_timing=decode_timing,
             rate_metrics=rate_metrics,
+            codec_timing=codec_timing,
             write_decoded_ply=False,
             log=render_log,
         )
@@ -315,13 +432,10 @@ def run_step3(
             decode_timing=decode_timing,
             decoded_pcd_path=str(decoded_pcd_path),
             gaussian_points=_gaussian_point_count(gaussian_dict),
+            codec_timing=codec_timing,
         )
         summary_json = str(summary_path)
         print(f"summary_json={summary_json}")
-
-    total_decode_sec = decode_sec
-    if geometry_decode_sec is not None:
-        total_decode_sec = geometry_decode_sec + decode_sec
 
     return Step3Result(
         gaussian_points=_gaussian_point_count(gaussian_dict),
@@ -335,8 +449,11 @@ def run_step3(
         gt_render_dir=None if not render_info else render_info.get("gt_render_dir"),
         summary_json=summary_json,
         render_sec=render_sec,
-        encode_sec=encode_sec,
-        total_decode_sec=total_decode_sec,
+        attribute_encode_sec=attribute_encode_sec,
+        geometry_encode_sec=geometry_encode_sec,
+        geometry_decode_sec=geometry_decode_sec,
+        total_encode_sec=codec_timing.get("total_encode_sec"),
+        total_decode_sec=codec_timing.get("total_decode_sec"),
         geometry_bpp=None if rate_metrics is None else float(rate_metrics["geometry_bpp"]),
         attribute_bpp=None if rate_metrics is None else float(rate_metrics["attribute_bpp"]),
         bpp=None if rate_metrics is None else float(rate_metrics["bpp"]),
@@ -356,8 +473,10 @@ def run_step3_from_outdir(
     attribute_bits: Optional[int] = None,
     geometry_bits: Optional[int] = None,
     support_points: Optional[int] = None,
-    encode_sec: Optional[float] = None,
+    attribute_encode_sec: Optional[float] = None,
+    geometry_encode_sec: Optional[float] = None,
     geometry_decode_sec: Optional[float] = None,
+    input_ply: Optional[Path] = None,
     fov: int = DEFAULT_FOV,
     width: int = DEFAULT_WIDTH,
     height: int = DEFAULT_HEIGHT,
@@ -386,7 +505,9 @@ def run_step3_from_outdir(
         geometry_bits=geometry_bits,
         support_points=support_points,
         sample_name=sample_name,
-        encode_sec=encode_sec,
+        input_ply=input_ply,
+        attribute_encode_sec=attribute_encode_sec,
+        geometry_encode_sec=geometry_encode_sec,
         geometry_decode_sec=geometry_decode_sec,
         fov=fov,
         width=width,
@@ -459,6 +580,7 @@ def main(argv: Optional[list[str]] = None) -> int:
         no_lattice=not args.lattice,
         enable_render=enable_render,
         total_points=_count_ply_points(args.input),
+        input_ply=args.input,
         fov=args.fov,
         width=args.width,
         height=args.height,
